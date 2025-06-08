@@ -1,0 +1,256 @@
+package projectWordleCloneGUI;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.*;
+
+public class WordleGUI {
+	
+	public static void main(String[] args) throws FileNotFoundException {
+		new WordleGUI();        
+    }
+    
+	private JFrame frame;
+    private JPanel scorePanel, gamePanel, keyboardPanel;
+    private JLabel gamesWon, gamesLost;       //score keeping Panel
+    private JButton newGameButton, exitButton;
+    private JLabel[][] grid;                  //gamePanel
+    private JButton[] keyboardButtons;        //keyboardPanel
+    
+    private String targetWord;
+    private int currentRow = 0;
+    private int currentCol = 0;
+    private int wins = 0;
+    private int losses = 0;
+    private boolean gameOver = false;
+
+    public WordleGUI() throws FileNotFoundException {
+        frame = new JFrame("Wordle Clone");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(1000, 800);
+        frame.setLayout(new BorderLayout());
+        
+        setupScorePanel();
+        setupGamePanel();
+        setupKeyboardPanel();
+        pickRandomWord();
+
+        frame.setVisible(true);
+    }
+    
+    
+    private void setupScorePanel(){
+    	scorePanel = new JPanel(new GridLayout(2, 2, 20, 5));
+    	
+	    gamesWon = new JLabel("Games Won: " + wins, SwingConstants.CENTER);
+	    gamesLost = new JLabel("Games Lost: " + losses, SwingConstants.CENTER);
+	    
+	    newGameButton = new JButton("New Game");
+        newGameButton.addActionListener(e -> {
+			try {
+				resetGame();
+			} catch (FileNotFoundException e1) {
+				e1.printStackTrace();
+			}
+		});
+        exitButton = new JButton("Exit");
+        exitButton.addActionListener(e -> System.exit(0));
+        
+	    scorePanel.add(gamesWon);
+	    scorePanel.add(gamesLost);
+	    scorePanel.add(newGameButton);
+        scorePanel.add(exitButton);
+        
+	    frame.add(scorePanel, BorderLayout.NORTH);
+    }
+
+    private void setupGamePanel() {
+        gamePanel = new JPanel(new GridLayout(6, 5, 5, 5));
+        gamePanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        grid = new JLabel[6][5];
+
+        for (int row = 0; row < 6; row++) {
+            for (int col = 0; col < 5; col++) {
+                grid[row][col] = new JLabel("", SwingConstants.CENTER);
+                grid[row][col].setFont(new Font("Calibri Body", Font.BOLD, 32));
+                grid[row][col].setBorder(BorderFactory.createLineBorder(Color.GRAY));
+                grid[row][col].setOpaque(true);
+                gamePanel.add(grid[row][col]);
+            }
+        }
+
+        frame.add(gamePanel, BorderLayout.CENTER);
+    }
+
+    private void setupKeyboardPanel() {
+        keyboardPanel = new JPanel(new GridLayout(3, 10, 5, 5));
+        keyboardPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        String[] keyboardKeys = {
+            "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
+            "A", "S", "D", "F", "G", "H", "J", "K", "L","ENTER",
+            "Z", "X", "C", "V", "B", "N", "M", "DEL"
+        };
+
+        keyboardButtons = new JButton[keyboardKeys.length];
+        for (int i = 0; i < keyboardKeys.length; i++) {
+            keyboardButtons[i] = new JButton(keyboardKeys[i]);
+            keyboardButtons[i].setFont(new Font("Arial", Font.BOLD, 14));
+            keyboardButtons[i].addActionListener(new KeyboardListener());
+            
+            if(keyboardKeys[i].length() == 1) {
+            	keyboardButtons[i].setMnemonic(keyboardKeys[i].charAt(0));;
+            }else if(keyboardKeys[i].equals("ENTER")) {
+            	keyboardButtons[i].setMnemonic('1');
+            }else {
+            	keyboardButtons[i].setMnemonic('2');
+            }
+            
+            keyboardPanel.add(keyboardButtons[i]);
+        }
+
+        frame.add(keyboardPanel, BorderLayout.SOUTH);
+    }
+    
+    private void pickRandomWord() throws FileNotFoundException {
+    	int max = 3103, min = 1, randomNum;
+    	randomNum = (int) ((Math.random() * (max - min)) + min);
+    	
+    	File wordsFile = new File("allFiveLetterWords.txt");
+        Scanner scanner = new Scanner(wordsFile);
+        int currentLine = 1;
+        while (scanner.hasNextLine()) {
+        	String word = scanner.nextLine().trim();//word is in lower-case letters
+            if (currentLine == randomNum) {
+            	targetWord = word.toUpperCase();//target is in upper-case
+            }
+            currentLine++;
+        }
+        scanner.close();
+        
+        System.out.println("Target: " + targetWord); // Hint for testing
+    }
+
+    private class KeyboardListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (gameOver) return;
+
+            String keyName = ((JButton) e.getSource()).getText();
+            if (keyName.equals("ENTER")) {
+                try {
+					checkGuess();
+				} catch (FileNotFoundException e1) {
+					e1.printStackTrace();
+				}
+            } else if (keyName.equals("DEL")) {
+                deleteLetter();
+            } else if (currentCol < 5) {
+                addLetter(keyName);
+            }
+        }
+    }
+
+    private void addLetter(String letter) {
+        grid[currentRow][currentCol].setText(letter);
+        currentCol++;
+    }
+
+    private void deleteLetter() {
+        if (currentCol > 0) {
+            currentCol--;
+            grid[currentRow][currentCol].setText("");
+        }
+    }
+
+    private void checkGuess() throws FileNotFoundException {
+        if (currentCol != 5) return;
+
+        StringBuilder guess = new StringBuilder();//guess is in upper-case letters
+        for (int col = 0; col < 5; col++) {
+            guess.append(grid[currentRow][col].getText());
+        }
+
+        String guessStr = guess.toString();//guessStr is in upper-case letters
+        boolean isGuessInWordList = false;
+        
+        File wordsFile = new File("allFiveLetterWords.txt");
+        Scanner scanner = new Scanner(wordsFile);
+        int currentLine = 1;
+        while (scanner.hasNextLine()) {
+        	String word = scanner.nextLine().trim();//word is lower-case
+            if (guessStr.equals(word.toUpperCase())) {
+            	isGuessInWordList = true;
+            }
+            currentLine++;
+        }
+        scanner.close();
+        
+        if (!isGuessInWordList) {
+            JOptionPane.showMessageDialog(frame, "Not in word list!");
+            return;
+        }
+        
+        for (int col = 0; col < 5; col++) {
+            String letter = grid[currentRow][col].getText();//upper
+            if (targetWord.charAt(col) == letter.charAt(0)) {
+                grid[currentRow][col].setBackground(Color.GREEN);
+                keyboardButtons[letterToButtonIndex(letter)].setBackground(Color.GREEN);
+            } else if (targetWord.contains(letter)) {
+                grid[currentRow][col].setBackground(Color.YELLOW);
+                if(keyboardButtons[letterToButtonIndex(letter)].getBackground() != Color.GREEN) {
+                	keyboardButtons[letterToButtonIndex(letter)].setBackground(Color.YELLOW);
+                }                   
+            } else {
+                grid[currentRow][col].setBackground(Color.LIGHT_GRAY);
+                keyboardButtons[letterToButtonIndex(letter)].setBackground(Color.LIGHT_GRAY);
+            }
+        }
+
+        if (guessStr.equals(targetWord)) {
+            JOptionPane.showMessageDialog(frame, "You win!");
+            wins++;
+            gamesWon.setText("Games Won: " + wins);
+            gameOver = true;
+        } else if (currentRow == 5) {
+            JOptionPane.showMessageDialog(frame, "Game over! Word: " + targetWord);
+            losses++;
+            gamesLost.setText("Games Lost: " + losses);
+            gameOver = true;
+        } else {
+            currentRow++;
+            currentCol = 0;
+        }
+    }
+    
+    private int letterToButtonIndex(String letter) {
+    	for (int i = 0; i < keyboardButtons.length; i++) {
+    		if(keyboardButtons[i].getText().equals(letter)) {
+    			return i;
+    		}
+        }
+		return 0;
+    }
+    
+    private void resetGame() throws FileNotFoundException {
+    	gameOver = false;
+    	currentRow = 0;
+    	currentCol = 0;
+    	
+    	for (int row = 0; row < 6; row++) {
+            for (int col = 0; col < 5; col++) {
+                grid[row][col].setText("");;
+                grid[row][col].setBackground(null);
+            }
+        }
+    	
+    	for (int i = 0; i < keyboardButtons.length; i++) {
+    		keyboardButtons[i].setBackground(null);
+    	}
+    	
+    	pickRandomWord();
+    }
+
+}
